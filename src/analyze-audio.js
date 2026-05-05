@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, resolve } from "node:path";
+import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
 const VERSION = 1;
 const DEFAULT_FPS = 30;
 const SAMPLE_RATE = 22050;
 const CHANNELS = ["rms", "low", "mid", "high", "flux", "beat", "bloom"];
+const DEFAULT_SOURCE_DIR = "source";
+const DEFAULT_RESULT_DIR = "result";
+const AUDIO_EXTENSIONS = new Set([".aac", ".aiff", ".aif", ".flac", ".m4a", ".mp3", ".ogg", ".opus", ".wav", ".webm"]);
 
 class OnePoleLowPass {
   constructor(cutoffHz, sampleRate) {
@@ -45,6 +48,9 @@ function parseArgs(argv) {
     format: "compact",
     output: null,
     albumId: null,
+    batch: false,
+    sourceDir: DEFAULT_SOURCE_DIR,
+    resultDir: DEFAULT_RESULT_DIR,
   };
   let input = null;
 
@@ -60,6 +66,12 @@ function parseArgs(argv) {
       options.format = requireValue(argv, ++i, arg);
     } else if (arg === "--output" || arg === "-o") {
       options.output = requireValue(argv, ++i, arg);
+    } else if (arg === "--batch") {
+      options.batch = true;
+    } else if (arg === "--source-dir") {
+      options.sourceDir = requireValue(argv, ++i, arg);
+    } else if (arg === "--result-dir") {
+      options.resultDir = requireValue(argv, ++i, arg);
     } else if (arg.startsWith("--")) {
       throw new Error(`Unknown option: ${arg}`);
     } else if (!input) {
@@ -72,7 +84,7 @@ function parseArgs(argv) {
   if (options.help) {
     return { input, options };
   }
-  if (!input) {
+  if (!input && !options.batch) {
     throw new Error("Missing input audio file.");
   }
   if (!Number.isFinite(options.fps) || options.fps <= 0) {
@@ -82,8 +94,13 @@ function parseArgs(argv) {
     throw new Error("--format must be compact or readable. Binary .u8 is not implemented yet.");
   }
 
-  options.input = resolve(input);
-  options.albumId ??= slugFromFilename(input);
+  if (input) {
+    options.input = resolve(input);
+    options.albumId ??= slugFromFilename(input);
+  }
+
+  options.sourceDir = resolve(options.sourceDir);
+  options.resultDir = resolve(options.resultDir);
   return { input: options.input, options };
 }
 
@@ -101,6 +118,38 @@ function slugFromFilename(path) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug || "audio-profile";
+}
+
+function isAudioFile(path) {
+  return AUDIO_EXTENSIONS.has(extname(path).toLowerCase());
+}
+
+function collectAudioFiles(directory) {
+  mkdirSync(directory, { recursive: true });
+
+  const files = [];
+  const entries = readdirSync(directory, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const entryPath = join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...collectAudioFiles(entryPath));
+      continue;
+    }
+
+    if (entry.isFile() && isAudioFile(entryPath)) {
+      files.push(entryPath);
+    }
+  }
+
+  return files.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }));
+}
+
+function createOutputPath(inputPath, resultDir, format) {
+  const albumId = slugFromFilename(inputPath);
+  const suffix = format === "readable" ? ".readable.json" : ".profile.json";
+  return join(resultDir, `${albumId}${suffix}`);
 }
 
 function decodeAudio(inputPath) {
@@ -314,6 +363,65 @@ function toReadableProfile({ albumId, fps, duration, normalizedFrames, beats }) 
   };
 }
 
+function createProfile(input, options) {
+  const samples = decodeAudio(input);
+  const analysis = analyze(samples, options.fps);
+  const profileInput = {
+    albumId: options.albumId ?? slugFromFilename(input),
+    fps: options.fps,
+    duration: analysis.duration,
+    normalizedFrames: analysis.normalizedFrames,
+    beats: analysis.beats,
+  };
+  const profile =
+    options.format === "readable" ? toReadableProfile(profileInput) : toCompactProfile(profileInput);
+  return options.format === "readable" ? `${JSON.stringify(profile, null, 2)}\n` : JSON.stringify(profile);
+}
+
+function writeProfile(input, options, outputPath) {
+  const json = createProfile(input, options);
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, json);
+}
+
+function runBatch(options) {
+  mkdirSync(options.sourceDir, { recursive: true });
+  mkdirSync(options.resultDir, { recursive: true });
+
+  const audioFiles = collectAudioFiles(options.sourceDir);
+
+  if (audioFiles.length === 0) {
+    console.log(`No audio files found in ${relative(process.cwd(), options.sourceDir) || options.sourceDir}.`);
+    console.log(`Put songs in ${DEFAULT_SOURCE_DIR}/, then run: npm run batch`);
+    return;
+  }
+
+  console.log(`Found ${audioFiles.length} audio file${audioFiles.length === 1 ? "" : "s"}.`);
+
+  let successCount = 0;
+  let failureCount = 0;
+
+  for (const inputPath of audioFiles) {
+    const outputPath = createOutputPath(inputPath, options.resultDir, options.format);
+    const albumId = slugFromFilename(inputPath);
+
+    try {
+      writeProfile(inputPath, { ...options, albumId }, outputPath);
+      successCount += 1;
+      console.log(`OK ${relative(process.cwd(), inputPath)} -> ${relative(process.cwd(), outputPath)}`);
+    } catch (error) {
+      failureCount += 1;
+      console.error(`FAIL ${relative(process.cwd(), inputPath)}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  if (failureCount > 0) {
+    throw new Error(`Batch finished with ${failureCount} failure${failureCount === 1 ? "" : "s"} and ${successCount} success${successCount === 1 ? "" : "es"}.`);
+  }
+
+  console.log(`Done. Wrote ${successCount} profile${successCount === 1 ? "" : "s"} to ${relative(process.cwd(), options.resultDir) || options.resultDir}.`);
+}
+
 function quantize(value) {
   return Math.round(clamp01(value) * 255);
 }
@@ -337,12 +445,16 @@ function roundTo(value, decimals) {
 function printHelp() {
   console.log(`Usage:
   npm run analyze -- <audio-file> [options]
+  npm run batch
 
 Options:
   --album-id <id>       Album/profile id. Defaults to a slug from the filename.
   --fps <number>        Analysis frame rate. Defaults to 30.
   --format <format>     compact or readable. Defaults to compact.
   --output, -o <path>   Write JSON to a file instead of stdout.
+  --batch               Analyze every audio file in source/.
+  --source-dir <path>   Batch input folder. Defaults to source.
+  --result-dir <path>   Batch output folder. Defaults to result.
   --help, -h            Show this help.
 `);
 }
@@ -354,24 +466,16 @@ function main() {
     return;
   }
 
-  const samples = decodeAudio(input);
-  const analysis = analyze(samples, options.fps);
-  const profileInput = {
-    albumId: options.albumId,
-    fps: options.fps,
-    duration: analysis.duration,
-    normalizedFrames: analysis.normalizedFrames,
-    beats: analysis.beats,
-  };
-  const profile =
-    options.format === "readable" ? toReadableProfile(profileInput) : toCompactProfile(profileInput);
-  const json = options.format === "readable" ? `${JSON.stringify(profile, null, 2)}\n` : JSON.stringify(profile);
+  if (options.batch) {
+    runBatch(options);
+    return;
+  }
 
   if (options.output) {
     const outputPath = resolve(options.output);
-    mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, json);
+    writeProfile(input, options, outputPath);
   } else {
+    const json = createProfile(input, options);
     process.stdout.write(json);
     if (options.format === "compact") {
       process.stdout.write("\n");

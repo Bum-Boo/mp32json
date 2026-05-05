@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "analyze": "node src/analyze-audio.js"
+    "analyze": "node src/analyze-audio.js",
+    "batch": "node src/analyze-audio.js --batch"
   },
   "engines": {
     "node": ">=20"
