@@ -1,0 +1,12 @@
+{
+  "name": "song-analysis-tool",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "analyze": "node src/analyze-audio.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
