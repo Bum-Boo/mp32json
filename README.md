@@ -123,4 +123,6 @@ node src/analyze-audio.js "source\demo-tone.mp3" --album-id demo-tone --output "
 
 3. `result\demo-tone.profile.json`을 열어 `channels`, `frames`, `beats` 값을 확인합니다.
 
+분석이 끝나면 JSON 파일에 채널 정보, 프레임별 에너지, 비트 데이터가 저장됩니다. 이 값을 React 비주얼라이저나 다른 시각화 도구에서 바로 사용할 수 있습니다.
+
 ![Audio analysis JSON result](docs/demo-screenshots/song-analyzer-flow-01-json-result.png)
