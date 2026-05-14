@@ -1,5 +1,14 @@
 # mp32json
 
+> MP3 파일을 React 비주얼라이저에서 바로 쓰기 쉬운 compact JSON 프로필로 변환하는 CLI 도구입니다.
+
+| 구분 | 내용 |
+|---|---|
+| 입력 | `source/` 폴더의 MP3 파일 |
+| 출력 | `result/` 폴더의 compact JSON profile |
+| 주요 데이터 | `channels`, `frames`, `beats` |
+| 사용처 | React 비주얼, 오디오 반응형 UI, 앨범/곡별 시각화 |
+
 음악 파일을 분석해서 React 비주얼에 연결하기 쉬운 compact JSON으로 변환하는 CLI 도구입니다.
 
 오디오는 한 번만 분석하고, React에서는 재생 시간으로 JSON frame만 읽으면 됩니다.
@@ -110,6 +119,7 @@ node src/analyze-audio.js "song.mp3" --format readable --output result/song.read
 ```
 
 - 바이너리 `.u8` 출력은 아직 구현하지 않았습니다.
+
 ## 데모 흐름
 
 실제 데모는 MP3 파일을 분석해 React 비주얼에서 쓰기 쉬운 JSON 프로필을 생성하는 흐름입니다.
