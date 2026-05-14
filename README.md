@@ -110,3 +110,17 @@ node src/analyze-audio.js "song.mp3" --format readable --output result/song.read
 ```
 
 - 바이너리 `.u8` 출력은 아직 구현하지 않았습니다.
+## 데모 흐름
+
+실제 데모는 MP3 파일을 분석해 React 비주얼에서 쓰기 쉬운 JSON 프로필을 생성하는 흐름입니다.
+
+1. 분석할 MP3 파일을 `source` 폴더에 넣습니다.
+2. 단일 파일은 아래처럼 실행합니다.
+
+```powershell
+node src/analyze-audio.js "source\demo-tone.mp3" --album-id demo-tone --output "result\demo-tone.profile.json"
+```
+
+3. `result\demo-tone.profile.json`을 열어 `channels`, `frames`, `beats` 값을 확인합니다.
+
+![Audio analysis JSON result](docs/demo-screenshots/song-analyzer-flow-01-json-result.png)
