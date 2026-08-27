@@ -1,138 +1,81 @@
 # mp32json
 
-> MP3 파일을 React 비주얼라이저에서 바로 쓰기 쉬운 compact JSON 프로필로 변환하는 CLI 도구입니다.
+[English](README.md) | [한국어](docs/README.ko.md) | [日本語](docs/README.ja.md) | [中文](docs/README.zh-CN.md)
 
-| 구분 | 내용 |
-|---|---|
-| 입력 | `source/` 폴더의 MP3 파일 |
-| 출력 | `result/` 폴더의 compact JSON profile |
-| 주요 데이터 | `channels`, `frames`, `beats` |
-| 사용처 | React 비주얼, 오디오 반응형 UI, 앨범/곡별 시각화 |
+A dependency-free Node.js CLI that uses `ffmpeg` to turn audio files into compact JSON profiles for web visualizers and audio-reactive interfaces.
 
-음악 파일을 분석해서 React 비주얼에 연결하기 쉬운 compact JSON으로 변환하는 CLI 도구입니다.
+## Features
 
-오디오는 한 번만 분석하고, React에서는 재생 시간으로 JSON frame만 읽으면 됩니다.
+- Analyze one file or recursively batch-process a folder.
+- Accept AAC, AIFF, FLAC, M4A, MP3, OGG, Opus, WAV, and WebM files that `ffmpeg` can decode.
+- Emit 0–255 values for `rms`, `low`, `mid`, `high`, `flux`, `beat`, and `bloom` channels.
+- Produce compact JSON by default or indented, object-based readable JSON.
+- Record detected beat times and configurable frames per second.
 
-## 준비
+This is a heuristic visual-profile generator, not a music-information-retrieval or mastering tool. Frequency bands use simple one-pole filters, features are normalized per track, and beat detection is approximate.
 
-필요한 것:
+## Requirements
 
-- Node.js 20+
-- `ffmpeg`
+- Node.js 20 or newer
+- `ffmpeg` available on `PATH`
 
-## 폴더 구조
+The package is marked `private` and has no published npm package or release binary. Clone/download the repository and run it locally; `npm install` is not required because there are no JavaScript dependencies.
 
-```text
-source/  분석할 음악 파일 넣는 곳
-result/  생성된 JSON 저장되는 곳
+## Usage
+
+```bash
+node src/analyze-audio.js --help
+node src/analyze-audio.js "song.mp3" --album-id my-song --output result/my-song.profile.json
 ```
 
-`source`와 `result` 안의 실제 파일은 git에 올라가지 않도록 제외되어 있습니다.
+Batch mode recursively reads supported audio from `source/` and writes JSON to `result/`:
 
-## 실행
-
-`source` 폴더에 음악 파일을 넣습니다.
-
-```text
-source/Brutal.mp3
-source/The Plush.mp3
-```
-
-그 다음 실행:
-
-```powershell
+```bash
 npm run batch
 ```
 
-결과는 `result` 폴더에 저장됩니다.
+Useful options:
 
 ```text
-result/brutal.profile.json
-result/the-plush.profile.json
+--fps <number>        output frame rate (default: 30)
+--format <format>     compact or readable (default: compact)
+--output, -o <path>  output file; single-file mode prints to stdout if omitted
+--source-dir <path>  batch input directory (default: source)
+--result-dir <path>  batch output directory (default: result)
 ```
 
-## 단일 파일만 분석
+Binary `.u8` output is not implemented. Batch output names are slugged from each filename; collisions can overwrite earlier results, so use unique base names.
 
-```powershell
-node src/analyze-audio.js "song.mp3" --album-id brutal --output result/brutal.profile.json
-```
-
-## 출력 형식
+## Output
 
 ```json
-{
-  "version": 1,
-  "albumId": "brutal",
-  "fps": 30,
-  "duration": 180,
-  "channels": ["rms", "low", "mid", "high", "flux", "beat", "bloom"],
-  "frames": [
-    [12, 31, 18, 8, 4, 0, 20]
-  ],
-  "beats": [0.48, 0.96, 1.44]
-}
+{"version":1,"albumId":"my-song","fps":30,"duration":180,"channels":["rms","low","mid","high","flux","beat","bloom"],"frames":[[12,31,18,8,4,0,20]],"beats":[0.48,0.96]}
 ```
 
-`frames` 값은 `0~255` 정수입니다. React에서 사용할 때는 `255`로 나눠서 `0~1` 값으로 바꿉니다.
+Frame values are integers from 0 to 255. Convert them to 0–1 values in a visualizer:
 
-## React에서 사용
-
-```ts
-const frameIndex = Math.floor(currentTime * profile.fps);
-const frame = profile.frames[frameIndex] ?? [];
-
+```js
+const index = Math.floor(currentTime * profile.fps);
+const frame = profile.frames[index] ?? [];
 const values = Object.fromEntries(
-  profile.channels.map((channel, index) => [channel, (frame[index] ?? 0) / 255])
+  profile.channels.map((channel, i) => [channel, (frame[i] ?? 0) / 255])
 );
 ```
 
-CSS 변수로 연결:
+## Privacy, copyright, and limits
 
-```ts
-element.style.setProperty("--audio-rms", String(values.rms ?? 0));
-element.style.setProperty("--audio-low", String(values.low ?? 0));
-element.style.setProperty("--audio-mid", String(values.mid ?? 0));
-element.style.setProperty("--audio-high", String(values.high ?? 0));
-element.style.setProperty("--audio-flux", String(values.flux ?? 0));
-element.style.setProperty("--audio-beat", String(values.beat ?? 0));
-element.style.setProperty("--audio-bloom", String(values.bloom ?? 0));
-```
+Analysis runs locally. The CLI does not upload audio, but input paths and generated profiles remain on your computer. Real files inside `source/` and `result/` are git-ignored.
 
-## 채널
+Only analyze audio you own or are authorized to process. Generated data does not remove copyright or license restrictions on the source audio. Do not commit or distribute source recordings without permission. Large or long files can use substantial memory because decoded audio and output frames are held in memory; the `ffmpeg` output buffer is capped at 512 MiB.
 
-- `rms`: 전체 음량
-- `low`: 저역
-- `mid`: 중역
-- `high`: 고역
-- `flux`: 프레임 간 변화량
-- `beat`: 비트 감지
-- `bloom`: 비주얼용 통합 에너지
+## Status and validation
 
-## 참고
+The repository is an early `0.1.0` utility with no automated test suite. Check the CLI parser with `node src/analyze-audio.js --help`, then validate real analysis with a small audio file you are permitted to use.
 
-- 기본 분석 fps는 `30`입니다.
-- 기본 출력은 compact JSON입니다.
-- 디버깅용 readable JSON:
+![Example JSON result](docs/demo-screenshots/song-analyzer-flow-01-json-result.png)
 
-```powershell
-node src/analyze-audio.js "song.mp3" --format readable --output result/song.readable.json
-```
+## License and attribution request
 
-- 바이너리 `.u8` 출력은 아직 구현하지 않았습니다.
+This repository currently has no separate license file. Do not assume that public source grants permission to copy, modify, or redistribute it; determine the rights you need first.
 
-## 데모 흐름
-
-실제 데모는 MP3 파일을 분석해 React 비주얼에서 쓰기 쉬운 JSON 프로필을 생성하는 흐름입니다.
-
-1. 분석할 MP3 파일을 `source` 폴더에 넣습니다.
-2. 단일 파일은 아래처럼 실행합니다.
-
-```powershell
-node src/analyze-audio.js "source\demo-tone.mp3" --album-id demo-tone --output "result\demo-tone.profile.json"
-```
-
-3. `result\demo-tone.profile.json`을 열어 `channels`, `frames`, `beats` 값을 확인합니다.
-
-분석이 끝나면 JSON 파일에 채널 정보, 프레임별 에너지, 비트 데이터가 저장됩니다. 이 값을 React 비주얼라이저나 다른 시각화 도구에서 바로 사용할 수 있습니다.
-
-![오디오 분석 JSON 결과](docs/demo-screenshots/song-analyzer-flow-01-json-result.png)
+If you showcase the project or use it in an authorized derivative, a mention of `@Bum-Boo` and the [original repository](https://github.com/Bum-Boo/mp32json) would be appreciated. This is a courtesy request, not an additional license condition and not a replacement for license obligations.
