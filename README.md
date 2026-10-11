@@ -44,7 +44,7 @@ Useful options:
 --result-dir <path>  batch output directory (default: result)
 ```
 
-Binary `.u8` output is not implemented. Batch output names are slugged from each filename; collisions can overwrite earlier results, so use unique base names.
+Binary `.u8` output is not implemented. Batch output names are slugged from each filename and remain flat inside the result folder. The CLI checks every destination before analysis; if files in different folders, extensions, or spellings share a slug, the whole batch fails without writing any profiles. Rename the conflicting files and retry. A successful batch still replaces existing profiles at its planned destinations.
 
 ## Output
 
@@ -70,7 +70,7 @@ Only analyze audio you own or are authorized to process. Generated data does not
 
 ## Status and validation
 
-The repository is an early `0.1.0` utility with no automated test suite. Check the CLI parser with `node src/analyze-audio.js --help`, then validate real analysis with a small audio file you are permitted to use.
+The repository is an early `0.1.0` utility. Run `npm test` for batch planning, collision protection, and CLI regression checks. Real audio analysis tests use generated WAV fixtures and require `ffmpeg`; those tests are skipped when it is unavailable. Check the CLI parser with `node src/analyze-audio.js --help`, then validate analysis with a small audio file you are permitted to use.
 
 ![Example JSON result](docs/demo-screenshots/song-analyzer-flow-01-json-result.png)
 

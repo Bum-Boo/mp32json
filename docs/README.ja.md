@@ -20,7 +20,7 @@ node src/analyze-audio.js "song.mp3" --album-id my-song --output result/my-song.
 npm run batch
 ```
 
-batch は既定で `source/` を再帰走査し `result/` へ書きます。`--fps`（既定30）、`--format compact|readable`、`--output`、`--source-dir`、`--result-dir` を指定できます。単一ファイルで出力先を省略すると stdout へ出ます。binary `.u8` は未実装です。同じ slug のファイルは上書きされるため、固有の基本名を使ってください。
+batch は既定で `source/` を再帰走査し `result/` へ書きます。`--fps`（既定30）、`--format compact|readable`、`--output`、`--source-dir`、`--result-dir` を指定できます。単一ファイルで出力先を省略すると stdout へ出ます。binary `.u8` は未実装です。出力は従来どおり結果フォルダー直下に保存します。解析前に全出力先を確認し、フォルダー・拡張子・表記が異なる入力でも slug が重複すれば、プロファイルを書かずに batch 全体を中止します。該当ファイルを改名して再実行してください。重複のない batch は既存の出力を置き換えます。
 
 ## 出力の利用
 
@@ -32,7 +32,7 @@ batch は既定で `source/` を再帰走査し `result/` へ書きます。`--f
 
 ## 状態と検証
 
-初期版 `0.1.0` で自動テスト一式はありません。`--help` の後、利用許可のある小さな音声で実解析を確認してください。
+初期版 `0.1.0` です。`npm test` で出力計画、重複時の書き込み防止、CLI 回帰テストを実行できます。実解析テストは生成した WAV を使い、`ffmpeg` がなければそのテストのみスキップします。`--help` の後、利用許可のある小さな音声で解析を確認してください。
 
 ![JSON 結果例](demo-screenshots/song-analyzer-flow-01-json-result.png)
 

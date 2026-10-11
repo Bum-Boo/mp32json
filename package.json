@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "analyze": "node src/analyze-audio.js",
-    "batch": "node src/analyze-audio.js --batch"
+    "batch": "node src/analyze-audio.js --batch",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"

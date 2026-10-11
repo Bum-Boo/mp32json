@@ -20,7 +20,7 @@ node src/analyze-audio.js "song.mp3" --album-id my-song --output result/my-song.
 npm run batch
 ```
 
-일괄 모드는 기본적으로 `source/`를 재귀 탐색해 `result/`에 씁니다. 옵션은 `--fps`(기본 30), `--format compact|readable`, `--output`, `--source-dir`, `--result-dir`입니다. 단일 파일에서 `--output`을 생략하면 stdout에 출력합니다. 바이너리 `.u8`은 미구현입니다. 파일명으로 만든 slug가 같으면 일괄 결과가 덮어써질 수 있으므로 고유한 기본 파일명을 사용하세요.
+일괄 모드는 기본적으로 `source/`를 재귀 탐색해 `result/`에 씁니다. 옵션은 `--fps`(기본 30), `--format compact|readable`, `--output`, `--source-dir`, `--result-dir`입니다. 단일 파일에서 `--output`을 생략하면 stdout에 출력합니다. 바이너리 `.u8`은 미구현입니다. 결과 파일은 기존처럼 결과 폴더에 한 단계로 저장합니다. 분석 전에 모든 출력 경로를 확인하며, 폴더·확장자·표기가 다른 파일의 slug가 같으면 아무 프로필도 쓰지 않고 일괄 작업을 중단합니다. 충돌하는 파일명을 바꾼 뒤 다시 실행하세요. 충돌 없는 작업은 기존 출력 파일을 덮어씁니다.
 
 ## 출력 사용
 
@@ -32,7 +32,7 @@ npm run batch
 
 ## 상태와 검증
 
-초기 `0.1.0` 도구이며 자동 테스트 모음은 없습니다. `--help`로 CLI를 확인한 뒤, 사용 권한이 있는 작은 오디오로 실제 분석을 검증하세요.
+초기 `0.1.0` 도구입니다. `npm test`로 출력 계획, 충돌 시 쓰기 방지, CLI 회귀 검사를 실행합니다. 실제 분석 검사는 생성한 WAV를 사용하며 `ffmpeg`가 없으면 해당 검사만 건너뜁니다. `--help`로 CLI를 확인한 뒤, 사용 권한이 있는 작은 오디오로 분석을 검증하세요.
 
 ![JSON 결과 예시](demo-screenshots/song-analyzer-flow-01-json-result.png)
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { dirname, extname, join, relative, resolve } from "node:path";
+import { planBatchOutputs, slugFromFilename } from "./batch-plan.js";
 
 const VERSION = 1;
 const DEFAULT_FPS = 30;
@@ -112,14 +113,6 @@ function requireValue(argv, index, flag) {
   return value;
 }
 
-function slugFromFilename(path) {
-  const name = basename(path, extname(path)).toLowerCase();
-  const slug = name
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "audio-profile";
-}
-
 function isAudioFile(path) {
   return AUDIO_EXTENSIONS.has(extname(path).toLowerCase());
 }
@@ -144,12 +137,6 @@ function collectAudioFiles(directory) {
   }
 
   return files.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }));
-}
-
-function createOutputPath(inputPath, resultDir, format) {
-  const albumId = slugFromFilename(inputPath);
-  const suffix = format === "readable" ? ".readable.json" : ".profile.json";
-  return join(resultDir, `${albumId}${suffix}`);
 }
 
 function decodeAudio(inputPath) {
@@ -396,15 +383,13 @@ function runBatch(options) {
     return;
   }
 
+  const jobs = planBatchOutputs(audioFiles, options.resultDir, options.format);
   console.log(`Found ${audioFiles.length} audio file${audioFiles.length === 1 ? "" : "s"}.`);
 
   let successCount = 0;
   let failureCount = 0;
 
-  for (const inputPath of audioFiles) {
-    const outputPath = createOutputPath(inputPath, options.resultDir, options.format);
-    const albumId = slugFromFilename(inputPath);
-
+  for (const { inputPath, outputPath, albumId } of jobs) {
     try {
       writeProfile(inputPath, { ...options, albumId }, outputPath);
       successCount += 1;
