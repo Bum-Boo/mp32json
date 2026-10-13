@@ -20,7 +20,7 @@ node src/analyze-audio.js "song.mp3" --album-id my-song --output result/my-song.
 npm run batch
 ```
 
-批处理默认递归读取 `source/` 并写入 `result/`。可用参数：`--fps`（默认 30）、`--format compact|readable`、`--output`、`--source-dir`、`--result-dir`。单文件模式省略输出路径时写到 stdout。二进制 `.u8` 尚未实现。同名 slug 会使批处理结果被覆盖，请使用不同的基础文件名。
+批处理默认递归读取 `source/` 并写入 `result/`。可用参数：`--fps`（默认 30）、`--format compact|readable`、`--output`、`--source-dir`、`--result-dir`。单文件模式省略输出路径时写到 stdout。二进制 `.u8` 尚未实现。结果仍保存在输出目录的同一层级。分析前会检查全部输出路径；即使输入目录、扩展名或拼写不同，只要 slug 重复，就会在写入任何配置文件之前终止整个批处理。请重命名冲突的文件后重试。没有冲突的批处理仍会替换已有的输出文件。
 
 ## 使用输出
 
@@ -32,7 +32,7 @@ npm run batch
 
 ## 状态与验证
 
-这是早期 `0.1.0` 工具，没有自动化测试套件。先以 `--help` 检查 CLI，再用您有权使用的小型音频进行实际验证。
+这是早期 `0.1.0` 工具。运行 `npm test` 可检查输出规划、冲突时的写入保护及 CLI 回归行为。实际分析测试使用生成的 WAV，需要 `ffmpeg`；未安装时仅跳过这些测试。先以 `--help` 检查 CLI，再用您有权使用的小型音频验证分析结果。
 
 ![JSON 结果示例](demo-screenshots/song-analyzer-flow-01-json-result.png)
 
