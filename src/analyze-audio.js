@@ -6,6 +6,9 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 const VERSION = 1;
 const DEFAULT_FPS = 30;
 const SAMPLE_RATE = 22050;
+// Supported --fps range: plain decimal numbers in [MIN_FPS, SAMPLE_RATE].
+// Above the decoding sample rate a frame would hold less than one sample.
+const MIN_FPS = 0.1;
 const CHANNELS = ["rms", "low", "mid", "high", "flux", "beat", "bloom"];
 const DEFAULT_SOURCE_DIR = "source";
 const DEFAULT_RESULT_DIR = "result";
@@ -61,7 +64,7 @@ function parseArgs(argv) {
     } else if (arg === "--album-id") {
       options.albumId = requireValue(argv, ++i, arg);
     } else if (arg === "--fps") {
-      options.fps = Number(requireValue(argv, ++i, arg));
+      options.fps = parseFps(requireValue(argv, ++i, arg));
     } else if (arg === "--format") {
       options.format = requireValue(argv, ++i, arg);
     } else if (arg === "--output" || arg === "-o") {
@@ -87,9 +90,6 @@ function parseArgs(argv) {
   if (!input && !options.batch) {
     throw new Error("Missing input audio file.");
   }
-  if (!Number.isFinite(options.fps) || options.fps <= 0) {
-    throw new Error("--fps must be a positive number.");
-  }
   if (!["compact", "readable"].includes(options.format)) {
     throw new Error("--format must be compact or readable. Binary .u8 is not implemented yet.");
   }
@@ -102,6 +102,14 @@ function parseArgs(argv) {
   options.sourceDir = resolve(options.sourceDir);
   options.resultDir = resolve(options.resultDir);
   return { input: options.input, options };
+}
+
+function parseFps(text) {
+  const fps = /^(\d+(\.\d*)?|\.\d+)$/.test(text) ? Number(text) : NaN;
+  if (!Number.isFinite(fps) || fps < MIN_FPS || fps > SAMPLE_RATE) {
+    throw new Error(`--fps must be a plain decimal number between ${MIN_FPS} and ${SAMPLE_RATE}, got "${text}".`);
+  }
+  return fps;
 }
 
 function requireValue(argv, index, flag) {
@@ -180,6 +188,9 @@ function decodeAudio(inputPath) {
   }
 
   const sampleCount = Math.floor(result.stdout.length / 4);
+  if (sampleCount === 0) {
+    throw new Error(`No audio samples decoded from ${inputPath}.`);
+  }
   const samples = new Float32Array(sampleCount);
   for (let i = 0; i < sampleCount; i += 1) {
     samples[i] = result.stdout.readFloatLE(i * 4);
@@ -216,7 +227,8 @@ function analyze(samples, fps) {
   let highSum = 0;
 
   for (let i = 0; i < samples.length; i += 1) {
-    const x = clamp(samples[i], -1, 1);
+    // Non-finite PCM (NaN/Infinity from float files) is treated as silence.
+    const x = Number.isFinite(samples[i]) ? clamp(samples[i], -1, 1) : 0;
     const low = lowFilter.process(x);
     const mid = midLowPass.process(midHighPass.process(x));
     const high = highFilter.process(x);
@@ -449,7 +461,7 @@ function printHelp() {
 
 Options:
   --album-id <id>       Album/profile id. Defaults to a slug from the filename.
-  --fps <number>        Analysis frame rate. Defaults to 30.
+  --fps <number>        Analysis frame rate, 0.1-22050 (plain decimal). Defaults to 30.
   --format <format>     compact or readable. Defaults to compact.
   --output, -o <path>   Write JSON to a file instead of stdout.
   --batch               Analyze every audio file in source/.
