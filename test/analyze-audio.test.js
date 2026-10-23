@@ -174,7 +174,7 @@ test("audio-less input (video only) is an error, not an empty profile", { skip: 
 
 test("--fps: invalid, fractional and out-of-range values", { skip: !hasFfmpeg && "ffmpeg missing" }, () => {
   const input = fixture("fps.wav", wav(tone(0.5)));
-  for (const bad of ["0", "-1", "abc", "30abc", "NaN", "Infinity", "0x10", "1e1", "1e9", "0.05", "22051", "44100", "30000", "1,5", " "]) {
+  for (const bad of ["0", "-0", "-1", "abc", "30abc", "NaN", "Infinity", "1e9", "22051", "44100", "30000", "1,5", " "]) {
     const out = join(root, "fpsbad.json");
     const r = cli([input, "--fps", bad, "-o", out]);
     assert.equal(r.status, 1, `fps ${JSON.stringify(bad)} should fail`);
@@ -183,7 +183,7 @@ test("--fps: invalid, fractional and out-of-range values", { skip: !hasFfmpeg &&
     assert.equal(existsSync(out), false);
   }
   assert.equal(cli([input, "--fps"]).status, 1);
-  for (const ok of ["0.1", "12.5", "23.976", "29.97", "22050", "15"]) {
+  for (const ok of ["0.05", "0.1", "1e1", "0x10", "12.5", "23.976", "29.97", "22050", "15"]) {
     const p = profileOf(input, ["--fps", ok]);
     assertProfile(p, Number(ok));
     p.frames.forEach(assertFrameValues);

@@ -6,9 +6,8 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 const VERSION = 1;
 const DEFAULT_FPS = 30;
 const SAMPLE_RATE = 22050;
-// Supported --fps range: plain decimal numbers in [MIN_FPS, SAMPLE_RATE].
+// Supported --fps: any finite number > 0 and <= SAMPLE_RATE.
 // Above the decoding sample rate a frame would hold less than one sample.
-const MIN_FPS = 0.1;
 const CHANNELS = ["rms", "low", "mid", "high", "flux", "beat", "bloom"];
 const DEFAULT_SOURCE_DIR = "source";
 const DEFAULT_RESULT_DIR = "result";
@@ -105,9 +104,9 @@ function parseArgs(argv) {
 }
 
 function parseFps(text) {
-  const fps = /^(\d+(\.\d*)?|\.\d+)$/.test(text) ? Number(text) : NaN;
-  if (!Number.isFinite(fps) || fps < MIN_FPS || fps > SAMPLE_RATE) {
-    throw new Error(`--fps must be a plain decimal number between ${MIN_FPS} and ${SAMPLE_RATE}, got "${text}".`);
+  const fps = Number(text);
+  if (!Number.isFinite(fps) || fps <= 0 || fps > SAMPLE_RATE) {
+    throw new Error(`--fps must be a positive number no greater than ${SAMPLE_RATE}, got "${text}".`);
   }
   return fps;
 }
@@ -461,7 +460,7 @@ function printHelp() {
 
 Options:
   --album-id <id>       Album/profile id. Defaults to a slug from the filename.
-  --fps <number>        Analysis frame rate, 0.1-22050 (plain decimal). Defaults to 30.
+  --fps <number>        Analysis frame rate, > 0 and <= 22050. Defaults to 30.
   --format <format>     compact or readable. Defaults to compact.
   --output, -o <path>   Write JSON to a file instead of stdout.
   --batch               Analyze every audio file in source/.
